@@ -1,0 +1,53 @@
+# Full stack: Postgres + FastAPI backend + Next.js frontend.
+# Copy .env.example to .env and fill in GitHub OAuth + Anthropic keys (optional),
+# then: docker compose up --build
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bitter
+      POSTGRES_PASSWORD: bitter
+      POSTGRES_DB: bitter
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bitter"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://bitter:bitter@db:5432/bitter
+      ENVIRONMENT: development
+      BACKEND_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:3000
+      SESSION_SECRET: ${SESSION_SECRET:-dev-insecure-session-secret-change-me}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+      EMAIL_BACKEND: console
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
